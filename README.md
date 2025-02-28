@@ -33,6 +33,6 @@ The tool is run via command line (CMD) with various parameters:
 
 ## API-Key
 
-Das Tool erfordert einen gültigen CSFloat API-Key. Diesen kannst du von der [CSFloat Developer Seite](https://csfloat.com/developers) erhalten.
+The tool requires a valid CSFloat API key. You can obtain this from the [CSFloat Developer page](https://csfloat.com/developers).
 
 
