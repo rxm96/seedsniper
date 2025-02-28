@@ -3,8 +3,6 @@ name: Build Executable
 on:
   push:
     branches: [ main ]
-    tags:
-      - 'v*' # Run workflow on version tags, e.g. v1.0.0
   pull_request:
     branches: [ main ]
   workflow_dispatch:
@@ -14,9 +12,8 @@ on:
         required: true
         default: 'patch'
 
-# Add this permissions block
 permissions:
-  contents: write  # This is required for creating releases and uploading assets
+  contents: write
 
 jobs:
   build:
@@ -39,6 +36,15 @@ jobs:
         npm install -g @vercel/ncc
         npm install -g pkg
       
+    # Version bump with npm if triggered by workflow_dispatch
+    - name: Bump version
+      if: github.event_name == 'workflow_dispatch'
+      id: bump_version
+      run: |
+        npm version ${{ github.event.inputs.release_type }} --no-git-tag-version
+        echo "NEW_VERSION=$(node -p "require('./package.json').version")" >> $env:GITHUB_ENV
+      shell: pwsh
+      
     - name: Build executable
       run: npm run build
       
@@ -54,46 +60,33 @@ jobs:
         name: documentation
         path: README.md
       
-    # Create a GitHub Release when triggered by tag or workflow_dispatch
-    - name: Check if release should be created
-      id: check_release
+    # Create tag for the new version
+    - name: Create Tag
+      if: github.event_name == 'workflow_dispatch'
+      id: create_tag
       run: |
-        if [[ "${{ github.event_name }}" == "push" && "${{ startsWith(github.ref, 'refs/tags/v') }}" == "true" ]]; then
-          echo "create_release=true" >> $GITHUB_OUTPUT
-          echo "tag_name=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-        elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-          echo "create_release=true" >> $GITHUB_OUTPUT
-          # Generate a new version based on package.json and increment according to input
-          version=$(node -p "require('./package.json').version")
-          if [[ "${{ github.event.inputs.release_type }}" == "patch" ]]; then
-            new_version=$(node -p "const [major, minor, patch] = '${version}'.split('.'); \`${major}.${minor}.\${parseInt(patch)+1}\`")
-          elif [[ "${{ github.event.inputs.release_type }}" == "minor" ]]; then
-            new_version=$(node -p "const [major, minor, patch] = '${version}'.split('.'); \`${major}.\${parseInt(minor)+1}.0\`")
-          elif [[ "${{ github.event.inputs.release_type }}" == "major" ]]; then
-            new_version=$(node -p "const [major, minor, patch] = '${version}'.split('.'); \`\${parseInt(major)+1}.0.0\`")
-          fi
-          echo "tag_name=v${new_version}" >> $GITHUB_OUTPUT
-        else
-          echo "create_release=false" >> $GITHUB_OUTPUT
-        fi
-      shell: bash
+        git config --global user.name 'GitHub Actions'
+        git config --global user.email 'actions@github.com'
+        git tag -a "v$env:NEW_VERSION" -m "Release v$env:NEW_VERSION"
+        git push origin "v$env:NEW_VERSION"
+      shell: pwsh
         
     # Create GitHub Release
     - name: Create Release
-      if: steps.check_release.outputs.create_release == 'true'
+      if: github.event_name == 'workflow_dispatch'
       id: create_release
       uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: ${{ steps.check_release.outputs.tag_name }}
-        release_name: Release ${{ steps.check_release.outputs.tag_name }}
+        tag_name: v${{ env.NEW_VERSION }}
+        release_name: Release v${{ env.NEW_VERSION }}
         draft: false
         prerelease: false
         
     # Upload executable to Release
     - name: Upload executable to Release
-      if: steps.check_release.outputs.create_release == 'true'
+      if: github.event_name == 'workflow_dispatch'
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -105,7 +98,7 @@ jobs:
         
     # Upload README to Release
     - name: Upload README to Release
-      if: steps.check_release.outputs.create_release == 'true'
+      if: github.event_name == 'workflow_dispatch'
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
