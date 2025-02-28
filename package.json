@@ -1,0 +1,29 @@
+{
+  "name": "csfloat",
+  "version": "1.0.0",
+  "main": "index.js",
+  "bin": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "nodemon src/index.js",
+    "build": "ncc build -o build/lib index.js && pkg --target node18-win-x64 -o build/csfloat.exe ./build/lib/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "pkg": {
+    "scripts": [
+      "./node_modules/axios/dist/node/axios.cjs"
+    ],
+    "assets": [
+      "node_modules/axios/dist/**/*"
+    ],
+    "targets": [
+      "node18-win-x64"
+    ]
+  },
+  "dependencies": {
+    "axios": "^1.8.1"
+  }
+}
